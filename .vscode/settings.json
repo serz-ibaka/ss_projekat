@@ -1,6 +1,10 @@
 {
   "files.associations": {
-    "stdio.h": "c"
+    "stdio.h": "c",
+    "fstream": "cpp",
+    "string": "cpp",
+    "string_view": "cpp",
+    "sstream": "cpp"
   },
   "C_Cpp.errorSquiggles": "Disabled"
 }

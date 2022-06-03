@@ -2,7 +2,7 @@
 #define _PARSER_H_
 
 #include <string>
-#include <ifstream>
+#include <fstream>
 
 #include "parsedLine.hpp"
 
