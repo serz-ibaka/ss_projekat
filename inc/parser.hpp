@@ -9,14 +9,16 @@
 using namespace std;
 
 class Parser {
-  static Parser parser_instance;
-  ifstream* file_stream = nullptr;
-  bool eof = false;
-  bool error = false;
+    static Parser parser_instance;
+    ifstream file_stream;
+    bool eof = false;
+    bool error = false;
+    Parser() {}
 public:
-  static Parser getInstance();
-  void setStream(string filename);
-  ParsedLine nextLine();
+    static Parser& getInstance();
+    void setStream(string filename);
+    ParsedLine nextLine();
+    bool check_end_of_file();
 };
 
 #endif
