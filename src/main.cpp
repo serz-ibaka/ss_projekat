@@ -3,7 +3,7 @@
 
 int main() {
     Assembler& assembler = Assembler::getInstance();
-    assembler.set_file("../test.s");
+    assembler.set_file("tests/test.s");
     assembler.assemble();
     cout << assembler;
     return 0;

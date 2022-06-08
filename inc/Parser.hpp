@@ -2,7 +2,7 @@
 #define _PARSER_H
 
 #include <fstream>
-#include "ParsedLine.hpp"
+#include "../inc/ParsedLine.hpp"
 
 using namespace std;
 

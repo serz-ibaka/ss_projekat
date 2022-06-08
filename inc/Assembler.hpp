@@ -1,5 +1,5 @@
-#ifndef _ASEMBLER_H_
-#define _ASEMBLER_H_
+#ifndef _ASEMBLER_H
+#define _ASEMBLER_H
 
 #include <string>
 #include <vector>

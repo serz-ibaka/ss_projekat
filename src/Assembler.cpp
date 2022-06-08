@@ -314,14 +314,14 @@ void Assembler::assemble() {
 ostream& operator<<(ostream& os, Assembler& as) {
     os << "Symbol table: " << endl << endl;
 
-    os << "     Value  Bind     Section        Size   Type        Name" << endl;
+    os << "     Value  Bind     Section        Size   Type             Name" << endl;
     for(auto& entry : as.symbol_table) {
         os << setw(10) << entry.second.value;
         os << setw(0) << (entry.second.is_global ? "  GLOB  " : "   LOC  ");
         os << setw(10) << entry.second.section;
         os << setw(0) << "  " << setw(10) << entry.second.size;
         os << setw(0) << (entry.second.is_section ? "   SCTN  " : "  NOTYP  ");
-        os << setw(10) << entry.first << setw(0) << endl;
+        os << setw(15) << entry.first << setw(0) << endl;
     }
     cout << endl << endl;
 
