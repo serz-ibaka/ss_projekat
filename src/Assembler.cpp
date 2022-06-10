@@ -345,8 +345,8 @@ void Assembler::print_assembled() {
     for(auto& entry : section_content) {
         cout << entry.first << endl << endl;
         int i = 0;
-        for(char c : entry.second) {
-            cout << setw(3) << +c << setw(0) << " ";
+        for(unsigned char c : entry.second) {
+            cout << setw(4) << +c << setw(0) << " ";
             if(++i % 8 == 0) cout << endl;
         }
         cout << endl << endl;

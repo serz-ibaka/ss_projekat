@@ -40,6 +40,7 @@ class ParsedLine {
     bool jump_instruction();
     bool address_instruction();
 
+public:
     static void strip(string& str);
     static void clean_comment(string& str);
 
@@ -55,7 +56,6 @@ class ParsedLine {
 
     void final_check();
 
-public:
 
     ParsedLine(string line);
 
