@@ -9,8 +9,6 @@
 using namespace std;
 
 class Assembler {
-    static Assembler assembler_instance;
-    Assembler() {}
     string filename;
     bool error = false;
 
@@ -63,11 +61,13 @@ class Assembler {
     int expression_value(vector<pair<string, bool>>& expression);
 
 public:
-    static Assembler& getInstance();
+    Assembler(string filename) : filename(filename) {}
+    Assembler() {}
     void assemble();
-    void set_file(string filename);
 
+    void print_assembled();
     friend ostream& operator<<(ostream& os, Assembler& as);
+    friend istream& operator>>(istream& is, Assembler& as);
 };
 
 

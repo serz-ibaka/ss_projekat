@@ -4,16 +4,6 @@
 #include <iostream>
 #include <iomanip>
 
-Assembler Assembler::assembler_instance;
-
-Assembler& Assembler::getInstance() {
-    return assembler_instance;
-}
-
-void Assembler::set_file(string filename) {
-    this->filename = filename;
-}
-
 bool Assembler::check_solvable(vector<pair<string, bool>>& expression) {
     for(auto& element: expression) {
         if(ParsedLine::check_literal(element.first)) continue;
@@ -133,7 +123,7 @@ void Assembler::assemble() {
                     symbol_table[parsed_line.operand_symbol].section = "__abs__";
                     symbol_table[parsed_line.operand_symbol].value = expression_value(parsed_line.expression);
                 } else {
-                    symbol_table[parsed_line.operand_symbol] = symbol_table_entry(expression_value(parsed_line.expression), current_section);
+                    symbol_table[parsed_line.operand_symbol] = symbol_table_entry(expression_value(parsed_line.expression), "__abs__");
                 }
             } else {
                 unresolved_symbols.insert({parsed_line.operand_symbol, parsed_line.expression});
@@ -302,8 +292,22 @@ void Assembler::assemble() {
 
     for(auto& flink : forward_link) {
         if(symbol_table.count(flink.symbol)) {
-            section_content[flink.section][flink.location_counter] = symbol_table[flink.symbol].value & 255;
-            section_content[flink.section][flink.location_counter + 1] = symbol_table[flink.symbol].value >> 8;
+            if(flink.section == symbol_table[flink.symbol].section) {
+                section_content[flink.section][flink.location_counter] = symbol_table[flink.symbol].value & 255;
+                section_content[flink.section][flink.location_counter + 1] = symbol_table[flink.symbol].value >> 8;
+            } else {
+                int offset = flink.location_counter;
+                string sym;
+                int addend;
+                if(symbol_table[flink.symbol].is_global) {
+                    sym = flink.symbol;
+                    addend = 0;
+                } else {
+                    sym = symbol_table[flink.symbol].section;
+                    addend = symbol_table[flink.symbol].value;
+                }
+                relocation_table[flink.section].push_back(relocation_entry(offset, sym, addend));
+            }
         } else {
             cout << "Greska pri asembliranju - nisu razresena sva obracanja unapred" << endl;
             cout << "Simbol " << flink.symbol << endl;
@@ -311,41 +315,117 @@ void Assembler::assemble() {
     }
 }
 
-ostream& operator<<(ostream& os, Assembler& as) {
-    os << "Symbol table: " << endl << endl;
+void Assembler::print_assembled() {
+    cout << "Symbol table: " << endl << endl;
 
-    os << "     Value  Bind     Section        Size   Type             Name" << endl;
-    for(auto& entry : as.symbol_table) {
-        os << setw(10) << entry.second.value;
-        os << setw(0) << (entry.second.is_global ? "  GLOB  " : "   LOC  ");
-        os << setw(10) << entry.second.section;
-        os << setw(0) << "  " << setw(10) << entry.second.size;
-        os << setw(0) << (entry.second.is_section ? "   SCTN  " : "  NOTYP  ");
-        os << setw(15) << entry.first << setw(0) << endl;
+    cout << "     Value  Bind     Section        Size   Type             Name" << endl;
+    for(auto& entry : symbol_table) {
+        cout << setw(10) << entry.second.value;
+        cout << setw(0) << (entry.second.is_global ? "  GLOB  " : "   LOC  ");
+        cout << setw(10) << entry.second.section;
+        cout << setw(0) << "  " << setw(10) << entry.second.size;
+        cout << setw(0) << (entry.second.is_section ? "   SCTN  " : "  NOTYP  ");
+        cout << setw(15) << entry.first << setw(0) << endl;
     }
     cout << endl << endl;
 
-    os << "Relocation tables: " << endl << endl;
-    for(auto& entry : as.relocation_table) {
-        os << ".rela." << entry.first << endl << endl;
-        os << "    Offset      Symbol      Addend" << endl;
+    cout << "Relocation tables: " << endl << endl;
+    for(auto& entry : relocation_table) {
+        cout << ".rela." << entry.first << endl << endl;
+        cout << "    Offset      Symbol      Addend" << endl;
         for(auto& row : entry.second) {
-            os << setw(10) << row.offset << setw(0) << "  ";
-            os << setw(10) << row.symbol << setw(0) << "  ";
-            os << setw(10) << row.addend << setw(0) << endl;
+            cout << setw(10) << row.offset << setw(0) << "  ";
+            cout << setw(10) << row.symbol << setw(0) << "  ";
+            cout << setw(10) << row.addend << setw(0) << endl;
+        }
+        cout << endl;
+    }
+
+    cout << "Section contents: " << endl << endl;
+    for(auto& entry : section_content) {
+        cout << entry.first << endl << endl;
+        int i = 0;
+        for(char c : entry.second) {
+            cout << setw(3) << +c << setw(0) << " ";
+            if(++i % 8 == 0) cout << endl;
+        }
+        cout << endl << endl;
+    }
+}
+
+
+ostream& operator<<(ostream& os, Assembler& as) {
+    os << as.symbol_table.size() << endl;
+    for(auto& entry : as.symbol_table) {
+        os << entry.first << " " << 
+                entry.second.value << " " << 
+                entry.second.size << " " << 
+                entry.second.section << " " << 
+                entry.second.is_section << " " << 
+                entry.second.is_global << endl;
+    }
+    
+    os << as.relocation_table.size() << endl;
+    for(auto& entry : as.relocation_table) {
+        os << entry.first << endl << entry.second.size() << endl;
+        for(auto& row : entry.second) {
+            os << row.offset << " " << row.symbol << " " << row.addend << endl;
+        }
+    }
+
+    os << as.section_content.size() << endl;
+    for(auto& entry : as.section_content) {
+        os << entry.first << endl << entry.second.size() << endl;
+        for(auto& byte : entry.second) {
+            os << +byte << " ";
         }
         os << endl;
     }
 
-    os << "Section contents: " << endl << endl;
-    for(auto& entry : as.section_content) {
-        os <<  entry.first << endl << endl;
-        int i = 0;
-        for(char c : entry.second) {
-            os << setw(3) << +c << setw(0) << " ";
-            if(++i % 8 == 0) os << endl;
-        }
-        os << endl << endl;
-    }
     return os;
+}
+
+istream& operator>>(istream& is, Assembler& as) {
+    int sym_tab_size;
+    is >> sym_tab_size;
+    for(int i = 0; i < sym_tab_size; i++) {
+        string name, section;
+        int value, size;
+        bool is_section, is_global;
+        is >> name >> value >> size >> section >> is_section >> is_global;
+        as.symbol_table[name] = Assembler::symbol_table_entry(value, section, is_global, is_section, size);
+    }
+
+    int num_relocation_tables;
+    is >> num_relocation_tables;
+    for(int i = 0; i < num_relocation_tables; i++) {
+        string section;
+        int size;
+        is >> section >> size;
+        as.relocation_table[section] = {};
+        for(int j = 0; j < size; j++) {
+            int offset, addend;
+            string symbol;
+            is >> offset >> symbol >> addend;
+            as.relocation_table[section].push_back(Assembler::relocation_entry(offset, symbol, addend));
+        }
+    }
+
+    int num_sections;
+    is >> num_sections;
+    cout << num_sections << endl;
+    for(int i = 0; i < num_sections; i++) {
+        string section;
+        int size;
+        is >> section >> size;
+        cout << section << " " << size << endl;
+        as.section_content[section] = {};
+        for(int j = 0; j < size; j++) {
+            int byte;
+            is >> byte;
+            as.section_content[section].push_back((char)byte);
+        }
+    }
+
+    return is;
 }
