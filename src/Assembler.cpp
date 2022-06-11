@@ -191,7 +191,7 @@ void Assembler::assemble() {
             int instr;
             if(parsed_line.instruction == ParsedLine::CALL) instr = 48;
             else if(parsed_line.instruction < ParsedLine::LDR) instr = 80 + parsed_line.instruction - ParsedLine::JMP;
-            else instr = 10 + parsed_line.addressing - ParsedLine::LDR << 4;
+            else instr = 10 + parsed_line.instruction - ParsedLine::LDR << 4;
             section_content[current_section].push_back(instr);
 
             // second byte
@@ -202,7 +202,7 @@ void Assembler::assemble() {
             if(parsed_line.instruction == ParsedLine::STR || parsed_line.instruction == ParsedLine::LDR) {
                 reg = (parsed_line.reg_dst - 1 << 4) + parsed_line.reg_src - 1;
                 if(parsed_line.reg_src == ParsedLine::NONE_REG) {
-                    reg = parsed_line.reg_dst - 1 << 4 + 15;
+                    reg = (parsed_line.reg_dst - 1 << 4) + 15;
                 }
             }
             section_content[current_section].push_back(reg);

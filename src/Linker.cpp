@@ -3,6 +3,7 @@
 #include "../inc/Assembler.hpp"
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 
 void Linker::fetch_all_data(int count, char* arguments[]) {
   vector<string> argv;
@@ -140,12 +141,12 @@ void Linker::fetch_all_data(int count, char* arguments[]) {
       }
 
       // loader
-      unsigned char hex_content[65536] = { 0 };
       for(auto& entry : section_content) {
           if(place.count(entry.first)) continue;
           place[entry.first] = next_section;
           next_section += symbol_table[entry.first].size;
       }
+      vector<unsigned char> hex_content(next_section, 0);
 
       for(auto& entry : section_content) {
           for(int i = 0; i < entry.second.size(); i++) {
@@ -169,8 +170,8 @@ void Linker::fetch_all_data(int count, char* arguments[]) {
       }
 
       ofstream hex_output(output_filename, ios::out | ios::binary);
-      for(int i = 0; i < 65536; i++) {
-          hex_output << +hex_content[i] << " ";
+      for(int i = 0; i < hex_content.size(); i++) {
+          hex_output << setw(2) << setfill('0') << hex << +hex_content[i] << setw(0) << " ";
           if((i + 1) % 8 == 0) hex_output << endl;
           if(i < 256) {
             cout << +hex_content[i] << " ";

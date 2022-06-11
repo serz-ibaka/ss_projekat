@@ -188,7 +188,7 @@ void ParsedLine::add_param(string param) {
             if(check_symbol(real_param)) {
                 operand_symbol = real_param;
                 addressing = PCREL;
-                reg_dst = PC;
+                reg_src = PC;
             } else {
                 error = true;
                 return;
@@ -196,7 +196,7 @@ void ParsedLine::add_param(string param) {
         } else if(param[0] == '[' && param[param.size() - 1] == ']') {
             string real_param = param.substr(1, param.size() - 2);
             if(get_register(real_param) != NONE_REG) {
-                reg_dst = get_register(real_param);
+                reg_src = get_register(real_param);
                 addressing = REG_IND;
             } else {
                 int i = 0;
@@ -213,7 +213,7 @@ void ParsedLine::add_param(string param) {
                     error = true;
                     return;
                 } else {
-                    reg_dst = get_register(reg);
+                    reg_src = get_register(reg);
                 }
                 if(check_symbol(op)) {
                     operand_symbol = op;
