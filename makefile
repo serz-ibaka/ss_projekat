@@ -3,7 +3,7 @@ IDIR=inc
 _ASSEMBLER_DEPS=Assembler.hpp ParsedLine.hpp Parser.hpp
 ASSEMBLER_DEPS = $(patsubst %,$(IDIR)/%,$(_ASSEMBLER_DEPS))
 
-_LINKER_DEPS = Assembler.hpp Parser.hpp ParsedLine.hpp
+_LINKER_DEPS = Assembler.hpp Parser.hpp ParsedLine.hpp Linker.hpp
 LINKER_DEPS = $(patsubst %,$(IDIR)/%,$(_LINKER_DEPS))
 
 SRCDIR=src
@@ -11,7 +11,7 @@ SRCDIR=src
 _ASSEMBLER_SRC=ParsedLine.cpp Assembler.cpp Parser.cpp assembler_main.cpp
 ASSEMBLER_SRC = $(patsubst %,$(SRCDIR)/%,$(_ASSEMBLER_SRC))
 
-_LINKER_SRC=Linker.cpp ParsedLine.cpp Assembler.cpp Parser.cpp
+_LINKER_SRC=Linker.cpp ParsedLine.cpp Assembler.cpp Parser.cpp linker_main.cpp
 LINKER_SRC = $(patsubst %,$(SRCDIR)/%,$(_LINKER_SRC))
 
 TARGET_ASSEMBLER = assembler

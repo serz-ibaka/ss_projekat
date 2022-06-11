@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "../inc/Assembler.hpp"
 
 using namespace std;
 
@@ -16,38 +17,14 @@ class Linker {
   string error_message;
   string output_filename;
 
-
-  class symbol_table_entry {
-  public:
-      int value;
-      bool is_global = false;
-      string section = "__und__";
-      int size = 0;
-      bool is_section = false;
-
-      symbol_table_entry() {}
-      symbol_table_entry(int value, string section, bool is_global = false, bool is_section = false, int size = 0)
-          : value(value), section(section), is_global(is_global), is_section(is_section), size(size) {}
-  };
-
-  class relocation_entry {
-  public:
-      int offset;
-      string symbol;
-      int addend;
-
-      relocation_entry() {}
-      relocation_entry(int offset, string symbol, int addend)
-          : offset(offset), symbol(symbol), addend(addend) {}
-  };
-
-  vector<unordered_map<string, symbol_table_entry>> symbol_tables;
-  unordered_map<string, vector<relocation_entry>> relocation_tables;
+  unordered_map<string, Assembler::symbol_table_entry> symbol_table;
+  unordered_map<string, vector<Assembler::relocation_entry>> relocation_tables;
   unordered_map<string, vector<unsigned char>> section_content;
 
 public:
 
   void fetch_all_data(int argc, char* argv[]);
+
 
 
 };

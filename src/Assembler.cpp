@@ -56,8 +56,8 @@ void Assembler::assemble() {
             break;
         }
         if(parsed_line.directive == ParsedLine::GLOBAL) {
-            for(string label : parsed_line.labels) {
-                symbol_table[label] = symbol_table_entry(0, "__tbd__", true);
+            for(string symbol : parsed_line.symbols) {
+                symbol_table[symbol] = symbol_table_entry(0, "__tbd__", true);
             }
         }
         else if(parsed_line.directive == ParsedLine::EXTERN) {
@@ -79,10 +79,12 @@ void Assembler::assemble() {
             for(int i = 0; i < parsed_line.operand_literal; i++) {
                 section_content[current_section].push_back(0);
             }
+            location_counter += parsed_line.operand_literal;
         }
         else if(parsed_line.directive == ParsedLine::ASCII) {
             for(char c : parsed_line.ascii_string) {
                 section_content[current_section].push_back(c);
+                location_counter++;
             }
         }
         else if(parsed_line.directive == ParsedLine::WORD) {
@@ -92,8 +94,8 @@ void Assembler::assemble() {
                     int value = ParsedLine::convert_literal(symbol);
                     int low = value & 255;
                     int high = value >> 8;
-                    section_content[current_section].push_back(low);
                     section_content[current_section].push_back(high);
+                    section_content[current_section].push_back(low);
                 }
                 else {
                     if(symbol_table.count(symbol)) {
@@ -173,13 +175,15 @@ void Assembler::assemble() {
         }
         else if(parsed_line.instruction == ParsedLine::PUSH) {
             section_content[current_section].push_back(176);
-            section_content[current_section].push_back(96 + parsed_line.reg_dst - 1);
-            location_counter += 2;
+            section_content[current_section].push_back(ParsedLine::SP - 1 + (parsed_line.reg_dst - 1 << 4));
+            section_content[current_section].push_back(18);
+            location_counter += 3;
         }
         else if(parsed_line.instruction == ParsedLine::POP) {
             section_content[current_section].push_back(160);
-            section_content[current_section].push_back((parsed_line.reg_dst - 1 << 4) + 6);
-            location_counter += 2;
+            section_content[current_section].push_back(ParsedLine::SP - 1 + (parsed_line.reg_dst - 1 << 4));
+            section_content[current_section].push_back(66);
+            location_counter += 3;
         }
         else if(parsed_line.instruction >= ParsedLine::CALL && parsed_line.instruction <= ParsedLine::JGT
                 || parsed_line.instruction == ParsedLine::LDR || parsed_line.instruction == ParsedLine::STR) {
@@ -235,8 +239,8 @@ void Assembler::assemble() {
             if(parsed_line.addressing == ParsedLine::LIT
             || parsed_line.addressing == ParsedLine::MEM_LIT
             || parsed_line.addressing == ParsedLine::REG_IND_LIT) {
-                section_content[current_section].push_back(parsed_line.operand_literal & 255);
                 section_content[current_section].push_back(parsed_line.operand_literal >> 8);
+                section_content[current_section].push_back(parsed_line.operand_literal & 255);
                 location_counter += 2;
             }
             else if(parsed_line.addressing == ParsedLine::SYM
@@ -244,17 +248,23 @@ void Assembler::assemble() {
             || parsed_line.addressing == ParsedLine::REG_IND_SYM
             || parsed_line.addressing == ParsedLine::PCREL) {
                 if(symbol_table.count(parsed_line.operand_symbol)) {
-                    int offset = location_counter;
-                    string sym;
-                    int addend;
-                    if(symbol_table[parsed_line.operand_symbol].is_global) {
-                        sym = parsed_line.operand_symbol;
-                        addend = 0;
-                    } else {
-                        sym = symbol_table[parsed_line.operand_symbol].section;
-                        addend = symbol_table[parsed_line.operand_symbol].value;
+                    if(symbol_table[parsed_line.operand_symbol].section == "__abs__") {
+                        section_content[current_section].push_back(symbol_table[parsed_line.operand_symbol].value >> 8);
+                        section_content[current_section].push_back(symbol_table[parsed_line.operand_symbol].value & 255);
                     }
-                    relocation_table[current_section].push_back(relocation_entry(offset, sym, addend));
+                    else {
+                        int offset = location_counter;
+                        string sym;
+                        int addend;
+                        if(symbol_table[parsed_line.operand_symbol].is_global) {
+                            sym = parsed_line.operand_symbol;
+                            addend = 0;
+                        } else {
+                            sym = symbol_table[parsed_line.operand_symbol].section;
+                            addend = symbol_table[parsed_line.operand_symbol].value;
+                        }
+                        relocation_table[current_section].push_back(relocation_entry(offset, sym, addend));
+                    }
                 } else {
                     forward_link.push_back(forward_link_entry(current_section, location_counter, parsed_line.operand_symbol));
                 }
@@ -292,9 +302,9 @@ void Assembler::assemble() {
 
     for(auto& flink : forward_link) {
         if(symbol_table.count(flink.symbol)) {
-            if(flink.section == symbol_table[flink.symbol].section) {
-                section_content[flink.section][flink.location_counter] = symbol_table[flink.symbol].value & 255;
-                section_content[flink.section][flink.location_counter + 1] = symbol_table[flink.symbol].value >> 8;
+            if(symbol_table[flink.symbol].section == "__abs__") {
+                section_content[flink.section][flink.location_counter] = symbol_table[flink.symbol].value >> 8;
+                section_content[flink.section][flink.location_counter + 1] = symbol_table[flink.symbol].value & 255;
             } else {
                 int offset = flink.location_counter;
                 string sym;
@@ -308,6 +318,7 @@ void Assembler::assemble() {
                 }
                 relocation_table[flink.section].push_back(relocation_entry(offset, sym, addend));
             }
+            
         } else {
             cout << "Greska pri asembliranju - nisu razresena sva obracanja unapred" << endl;
             cout << "Simbol " << flink.symbol << endl;
@@ -413,12 +424,10 @@ istream& operator>>(istream& is, Assembler& as) {
 
     int num_sections;
     is >> num_sections;
-    cout << num_sections << endl;
     for(int i = 0; i < num_sections; i++) {
         string section;
         int size;
         is >> section >> size;
-        cout << section << " " << size << endl;
         as.section_content[section] = {};
         for(int j = 0; j < size; j++) {
             int byte;

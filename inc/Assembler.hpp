@@ -8,6 +8,8 @@
 
 using namespace std;
 
+class Linker;
+
 class Assembler {
     string filename;
     bool error = false;
@@ -68,6 +70,8 @@ public:
     void print_assembled();
     friend ostream& operator<<(ostream& os, Assembler& as);
     friend istream& operator>>(istream& is, Assembler& as);
+
+    friend class Linker;
 };
 
 
