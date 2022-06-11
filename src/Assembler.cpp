@@ -199,16 +199,10 @@ void Assembler::assemble() {
             if(parsed_line.reg_dst == ParsedLine::NONE_REG) {
                 reg = 255;
             }
-            if(parsed_line.instruction == ParsedLine::STR) {
-                reg = (parsed_line.reg_src - 1 << 4) + parsed_line.reg_dst - 1;
-                if(parsed_line.reg_src == ParsedLine::NONE_REG) {
-                    reg = 240 + parsed_line.reg_dst - 1;
-                }
-            }
-            else if(parsed_line.instruction == ParsedLine::LDR) {
+            if(parsed_line.instruction == ParsedLine::STR || parsed_line.instruction == ParsedLine::LDR) {
                 reg = (parsed_line.reg_dst - 1 << 4) + parsed_line.reg_src - 1;
                 if(parsed_line.reg_src == ParsedLine::NONE_REG) {
-                    reg = (parsed_line.reg_dst - 1 << 4) + 15;
+                    reg = parsed_line.reg_dst - 1 << 4 + 15;
                 }
             }
             section_content[current_section].push_back(reg);
@@ -251,6 +245,8 @@ void Assembler::assemble() {
                     if(symbol_table[parsed_line.operand_symbol].section == "__abs__") {
                         section_content[current_section].push_back(symbol_table[parsed_line.operand_symbol].value >> 8);
                         section_content[current_section].push_back(symbol_table[parsed_line.operand_symbol].value & 255);
+                        location_counter += 2;
+                        continue;
                     }
                     else {
                         int offset = location_counter;

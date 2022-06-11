@@ -14,5 +14,7 @@ int main(int argc, char* argv[]) {
     ofstream wf(output, ios::out | ios::binary);
     wf << assembler;
 
+    assembler.print_assembled();
+
     return 0;
 }

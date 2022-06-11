@@ -82,7 +82,7 @@ void Linker::fetch_all_data(int count, char* arguments[]) {
                     symbol_table[entry.first] = entry.second;
                 }
             } else {
-                if(symbol_table.count(entry.first)) {
+                if(symbol_table.count(entry.first) && symbol_table[entry.first].section != "__und__") {
                     error = true;
                     error_message = "Multiple definition of symbol " + entry.first;
                     return;
@@ -127,7 +127,7 @@ void Linker::fetch_all_data(int count, char* arguments[]) {
       for(auto& entry1 : place) {
           for(auto& entry2 : place) {
               if(entry1 != entry2) {
-                  if(entry1.second <= entry2.second && entry1.second + symbol_table[entry1.first].size >= entry2.second) {
+                  if(entry1.second <= entry2.second && entry1.second + symbol_table[entry1.first].size > entry2.second) {
                       error = true;
                       error_message = "Sections " + entry1.first + " and " + entry2.first + " will overlap";
                       return;
@@ -157,8 +157,14 @@ void Linker::fetch_all_data(int count, char* arguments[]) {
       for(auto& entry : relocation_tables) {
           string section = entry.first;
           for(auto& row : entry.second) {
+            if(place.count(row.symbol)) {
               hex_content[place[section] + row.offset] = (place[row.symbol] + row.addend) >> 8;
               hex_content[place[section] + row.offset + 1] = (place[row.symbol] + row.addend) & 255;
+            }
+            else {
+                hex_content[place[section] + row.offset] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value) >> 8;
+                hex_content[place[section] + row.offset + 1] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value) & 255;
+            }
           }
       }
 

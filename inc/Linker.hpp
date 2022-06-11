@@ -24,7 +24,7 @@ class Linker {
 public:
 
   void fetch_all_data(int argc, char* argv[]);
-
+  string get_error_message() { return error_message; }
 
 
 };
