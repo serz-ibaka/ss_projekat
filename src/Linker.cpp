@@ -161,10 +161,18 @@ void Linker::fetch_all_data(int count, char* arguments[]) {
             if(place.count(row.symbol)) {
               hex_content[place[section] + row.offset] = (place[row.symbol] + row.addend) >> 8;
               hex_content[place[section] + row.offset + 1] = (place[row.symbol] + row.addend) & 255;
+              if(row.is_PC) {
+                hex_content[place[section] + row.offset] = (place[row.symbol] + row.addend - place[section] - row.offset) >> 8;
+                hex_content[place[section] + row.offset + 1] = (place[row.symbol] + row.addend - place[section] - row.offset) & 255;
+              }
             }
             else {
-                hex_content[place[section] + row.offset] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value) >> 8;
-                hex_content[place[section] + row.offset + 1] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value) & 255;
+                hex_content[place[section] + row.offset] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend) >> 8;
+                hex_content[place[section] + row.offset + 1] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend) & 255;
+                if(row.is_PC) {
+                    hex_content[place[section] + row.offset] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend - place[section] - row.offset) >> 8;
+                    hex_content[place[section] + row.offset + 1] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend - place[section] - row.offset) & 255;
+                }
             }
           }
       }
@@ -195,7 +203,7 @@ void Linker::fetch_all_data(int count, char* arguments[]) {
     for(auto& entry : relocation_tables) {
         rel_output << entry.first << endl << entry.second.size() << endl;
         for(auto& row : entry.second) {
-            rel_output << row.offset << " " << row.symbol << " " << row.addend << endl;
+            rel_output << row.offset << " " << row.is_PC << " " << row.symbol << " " << row.addend << endl;
         }
     }
 

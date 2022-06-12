@@ -1,0 +1,65 @@
+Symbol table: 
+
+Value  Size   Type  Bind         Section            Name
+ 0000    1c   LOC   SCTN          myCode          myCode
+ 0000    10   LOC   SCTN             ivt             ivt
+ 0000    3e   LOC   SCTN             isr             isr
+ 0000     2   LOC   SCTN          myData          myData
+ 0000     0  GLOB  NOTYP          myData       myCounter
+ 0000     0  GLOB  NOTYP          myCode         myStart
+
+.rela.myData
+
+Offset     Type          Symbol  Addend
+
+
+.rela.myCode
+
+Offset     Type          Symbol  Addend
+  000d  ABS_REL       myCounter       0
+  0019  ABS_REL          myCode      10
+
+
+.rela.isr
+
+Offset     Type          Symbol  Addend
+  0003  ABS_REL         myStart       0
+  0029   PC_REL       myCounter      -2
+  0035  ABS_REL       myCounter       0
+
+
+.rela.ivt
+
+Offset     Type          Symbol  Addend
+  0000  ABS_REL             isr       0
+  0004  ABS_REL             isr       5
+  0006  ABS_REL             isr      22
+
+myData
+
+00 00 
+
+myCode
+
+a0 0f 00 00 01 b0 0f 04 
+ff 10 a0 0f 04 00 00 a0 
+1f 00 00 05 74 01 52 ff 
+00 00 00 00 
+
+isr
+
+50 ff 00 00 00 b0 06 12 
+a0 0f 00 00 54 b0 0f 04 
+ff 00 a0 06 42 20 b0 06 
+12 b0 16 12 a0 0f 04 ff 
+02 b0 0f 04 ff 00 a0 07 
+03 00 00 a0 1f 00 00 01 
+70 01 b0 0f 04 00 00 a0 
+16 42 a0 06 42 20 
+
+ivt
+
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+
+

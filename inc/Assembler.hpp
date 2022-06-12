@@ -35,6 +35,7 @@ class Assembler {
         int offset;
         string symbol;
         int addend;
+        bool is_PC = false;
 
         relocation_entry() {}
         relocation_entry(int offset, string symbol, int addend)
@@ -46,6 +47,7 @@ class Assembler {
         string section;
         int location_counter;
         string symbol;
+        bool is_PC = false;
 
         forward_link_entry() {}
         forward_link_entry(string section, int location_counter, string symbol)

@@ -216,7 +216,11 @@ void Assembler::assemble() {
                 addressing = 3;
             }
             else if(parsed_line.addressing == ParsedLine::PCREL) {
-                addressing = 5;
+                if(parsed_line.instruction == ParsedLine::LDR || parsed_line.instruction == ParsedLine::STR) {
+                    addressing = 3;
+                } else {
+                    addressing = 5;
+                }
             }
             else if(parsed_line.addressing == ParsedLine::REG_DIR) {
                 addressing = 1;
@@ -260,9 +264,16 @@ void Assembler::assemble() {
                             addend = symbol_table[parsed_line.operand_symbol].value;
                         }
                         relocation_table[current_section].push_back(relocation_entry(offset, sym, addend));
+                        if(parsed_line.addressing == ParsedLine::PCREL) {
+                            relocation_table[current_section].back().is_PC = true;
+                            relocation_table[current_section].back().addend -= 2;
+                        }
                     }
                 } else {
                     forward_link.push_back(forward_link_entry(current_section, location_counter, parsed_line.operand_symbol));
+                    if(parsed_line.addressing == ParsedLine::PCREL) {
+                        forward_link.back().is_PC = true;
+                    }
                 }
 
                 section_content[current_section].push_back(0);
@@ -313,6 +324,10 @@ void Assembler::assemble() {
                     addend = symbol_table[flink.symbol].value;
                 }
                 relocation_table[flink.section].push_back(relocation_entry(offset, sym, addend));
+                if(flink.is_PC) {
+                    relocation_table[flink.section].back().is_PC = true;
+                    relocation_table[flink.section].back().addend -= 2;
+                }
             }
             
         } else {
@@ -321,45 +336,6 @@ void Assembler::assemble() {
         }
     }
 }
-
-void Assembler::print_assembled() {
-    cout << "Symbol table: " << endl << endl;
-
-    cout << "     Value  Bind     Section        Size   Type             Name" << endl;
-    for(auto& entry : symbol_table) {
-        cout << setw(10) << entry.second.value;
-        cout << setw(0) << (entry.second.is_global ? "  GLOB  " : "   LOC  ");
-        cout << setw(10) << entry.second.section;
-        cout << setw(0) << "  " << setw(10) << entry.second.size;
-        cout << setw(0) << (entry.second.is_section ? "   SCTN  " : "  NOTYP  ");
-        cout << setw(15) << entry.first << setw(0) << endl;
-    }
-    cout << endl << endl;
-
-    cout << "Relocation tables: " << endl << endl;
-    for(auto& entry : relocation_table) {
-        cout << ".rela." << entry.first << endl << endl;
-        cout << "    Offset      Symbol      Addend" << endl;
-        for(auto& row : entry.second) {
-            cout << setw(10) << row.offset << setw(0) << "  ";
-            cout << setw(10) << row.symbol << setw(0) << "  ";
-            cout << setw(10) << row.addend << setw(0) << endl;
-        }
-        cout << endl;
-    }
-
-    cout << "Section contents: " << endl << endl;
-    for(auto& entry : section_content) {
-        cout << entry.first << endl << endl;
-        int i = 0;
-        for(unsigned char c : entry.second) {
-            cout << setw(4) << +c << setw(0) << " ";
-            if(++i % 8 == 0) cout << endl;
-        }
-        cout << endl << endl;
-    }
-}
-
 
 ostream& operator<<(ostream& os, Assembler& as) {
     os << as.symbol_table.size() << endl;
@@ -376,7 +352,7 @@ ostream& operator<<(ostream& os, Assembler& as) {
     for(auto& entry : as.relocation_table) {
         os << entry.first << endl << entry.second.size() << endl;
         for(auto& row : entry.second) {
-            os << row.offset << " " << row.symbol << " " << row.addend << endl;
+            os << row.offset << " " << row.is_PC << " " << row.symbol << " " << row.addend << endl;
         }
     }
 
@@ -411,10 +387,11 @@ istream& operator>>(istream& is, Assembler& as) {
         is >> section >> size;
         as.relocation_table[section] = {};
         for(int j = 0; j < size; j++) {
-            int offset, addend;
+            int offset, addend, is_PC;
             string symbol;
-            is >> offset >> symbol >> addend;
+            is >> offset >> is_PC >> symbol >> addend;
             as.relocation_table[section].push_back(Assembler::relocation_entry(offset, symbol, addend));
+            as.relocation_table[section].back().is_PC = (is_PC == 1);
         }
     }
 
