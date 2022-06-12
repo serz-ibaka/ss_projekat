@@ -13,6 +13,12 @@ class Emulator {
 
   vector<int> registers;
   vector<int> memory;
+
+public:
+  Emulator(string filename);
+
+  void finished_emulation_print();
+
 };
 
 #endif

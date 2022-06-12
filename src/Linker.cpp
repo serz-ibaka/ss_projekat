@@ -179,12 +179,11 @@ void Linker::fetch_all_data(int count, char* arguments[]) {
 
       ofstream hex_output(output_filename, ios::out | ios::binary);
       for(int i = 0; i < hex_content.size(); i++) {
-          hex_output << setw(2) << setfill('0') << hex << +hex_content[i] << setw(0) << " ";
-          if((i + 1) % 8 == 0) hex_output << endl;
-          if(i < 256) {
-            cout << +hex_content[i] << " ";
-            if((i + 1) % 8 == 0) cout << endl;
+        if(i % 8 == 0) {
+          hex_output << setw(4) << setfill('0') << hex << i << setw(0) << ": ";
         }
+        hex_output << setw(2) << setfill('0') << hex << +hex_content[i] << setw(0) << " ";
+        if((i + 1) % 8 == 0) hex_output << endl;
       }
   }
   else {
