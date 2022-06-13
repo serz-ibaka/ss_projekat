@@ -1,0 +1,7 @@
+./assembler
+./linker
+./emulator
+./objdump
+./test.o
+./main.o
+./program.hex

@@ -2,6 +2,53 @@
 
 #include <bitset>
 #include <fstream>
+#include <termios.h>
+#include <poll.h>
+#include <unistd.h>
+
+void Emulator::getch() {
+    char buf = 0;
+    struct termios old = {0};
+    if(tcgetattr(0, &old) < 0) {
+        perror("tcsetattr()");
+    }
+    old.c_lflag &= ~(ICANON | ECHO);
+    old.c_cc[VMIN] = 1;
+    old.c_cc[VTIME] = 0;
+    if(tcsetattr(0, TCSANOW, &old) < 0) {
+        perror("tcsetattr ICANON");
+    }
+    if(read(0, &buf, 1) < 0) {
+        perror("read()");
+    }
+    old.c_lflag |= ICANON | ECHO;
+    if(tcsetattr(0, TCSADRAIN, &old) < 0) {
+        perror("tcsetattr ~ICANON");
+    }
+    memory[TERM_IN] = +buf;
+    memory[PSW] &= ~0x40;
+}
+
+void Emulator::update_terminal() {
+    struct pollfd input[1] = {{ fd: 0, events: POLLIN }};
+    int ret_poll = poll(input, 1, -1);
+    if(ret_poll) {
+        getch();
+    }
+}
+
+void Emulator::update_timer() {
+    int timer_index = (memory[TIM_CFG] << 8) + memory[TIM_CFG + 1];
+    int timer = 500;
+    if(timer_index < timer_values.size()) timer = timer_values[timer_index];
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    long ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+    if(ms - last_interrupt > timer) {
+        last_interrupt = ms;
+        memory[PSW] &= ~0x20;
+    }
+}
 
 Emulator::Emulator(string filename)
   : memory(0x10000, 0) {
@@ -49,6 +96,12 @@ void Emulator::finished_emulation_print() {
 void Emulator::initialize() {
     memory[PC] = memory[0x0000];
     memory[PC + 1] = memory[0x0001];
+    memory[SP] = 0xff;
+    memory[SP + 1] = 0x00;
+    memory[PSW] |= 0x60;
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    last_interrupt = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }
 
 bool Emulator::one_address_instruction() {
@@ -69,12 +122,12 @@ bool Emulator::three_address_instruction() {
 }
 
 bool Emulator::wrong_op_code(int op_code) {
-    return instruction != HALT && instruction != INT && instruction != IRET && instruction != CALL && instruction != RET
-        && instruction != JMP && instruction != JEQ && instruction != JNE && instruction != JGT
-        && instruction != XCHG
-        && instruction != ADD && instruction != SUB && instruction != MUL && instruction != DIV && instruction != CMP
-        && instruction != NOT && instruction != AND && instruction != OR && instruction != XOR && instruction != TEST
-        && instruction != SHL && instruction != SHR && instruction != LDR && instruction != STR;
+    return op_code != HALT && op_code != INT && op_code != IRET && op_code != CALL && op_code != RET
+        && op_code != JMP && op_code != JEQ && op_code != JNE && op_code != JGT
+        && op_code != XCHG
+        && op_code != ADD && op_code != SUB && op_code != MUL && op_code != DIV && op_code != CMP
+        && op_code != NOT && op_code != AND && op_code != OR && op_code != XOR && op_code != TEST
+        && op_code != SHL && op_code != SHR && op_code != LDR && op_code != STR;
 }
 
 bool Emulator::wrong_addressing(int addressing) {
@@ -94,7 +147,10 @@ bool Emulator::wrong_register(int reg) {
 
 void Emulator::fetch() {
     error = false;
-    int ins = memory[memory[PC]++];
+    int pc = (memory[PC] << 8) + memory[PC + 1];
+    int ins = memory[pc++];
+    memory[PC] = pc >> 8;
+    memory[PC + 1] = pc & 0xff;
     if(wrong_op_code(ins)) {
         error = true;
         return;
@@ -102,7 +158,9 @@ void Emulator::fetch() {
     instruction = (Instruction) ins;
     if(one_address_instruction()) return;
 
-    int registers = memory[memory[PC]++];
+    int registers = memory[pc++];
+    memory[PC] = pc >> 8;
+    memory[PC + 1] = pc & 0xff;
     if(wrong_register(registers >> 4) || wrong_register(registers & 0xf)) {
         error = true;
         return;
@@ -111,7 +169,9 @@ void Emulator::fetch() {
     reg_S = (Register) (0xff20 + (registers & 0xf));
     if(two_address_instruction()) return;
 
-    int address_update = memory[memory[PC]++];
+    int address_update = memory[pc++];
+    memory[PC] = pc >> 8;
+    memory[PC + 1] = pc & 0xff;
     if(wrong_addressing(address_update & 0xf) || wrong_update(address_update >> 4)) {
         error = true;
         return;
@@ -120,8 +180,10 @@ void Emulator::fetch() {
     update = (Register_Update) (address_update >> 4);
     if(three_address_instruction()) return;
 
-    int data_high = memory[memory[PC]++];
-    int data_low = memory[memory[PC]++];
+    int data_high = memory[pc++];
+    int data_low = memory[pc++];
+    memory[PC] = pc >> 8;
+    memory[PC + 1] = pc & 0xff;
     data_payload = (data_high << 8) + data_low;
 }
 
@@ -258,13 +320,50 @@ void Emulator::exec() {
     else if(instruction == STR) {
         memory[operand] = memory[reg_D];
         memory[operand + 1] = memory[reg_D + 1];
+        if(operand == TERM_OUT) {
+            cout << memory[TERM_OUT];
+        }
     }
 }
 
 void Emulator::intr() {
-
+    bool timer_interrupt = !(memory[PSW] & 0x20);
+    bool terminal_interrupt = !(memory[PSW] & 0x40);
+    if(error || timer_interrupt || terminal_interrupt) {
+        int sp = (memory[SP] << 8) + memory[SP + 1] - 4;
+        memory[sp] = memory[PC];
+        memory[sp + 1] = memory[PC + 1];
+        memory[sp + 2] = memory[PSW];
+        memory[sp + 3] = memory[PSW + 1];
+        memory[SP] = sp >> 8;
+        memory[SP + 1] = sp & 0xff;
+    
+        if(error) {
+            memory[PC] = memory[0x2];
+            memory[PC + 1] = memory[0x3];
+        }
+        else if(!(memory[PSW] & 0x40)) {
+            memory[PC] = memory[0x6];
+            memory[PC + 1] = memory[0x7];
+            memory[PSW] |= 0x40;
+        }
+        else if(!(memory[PSW] & 0x20)) {
+            memory[PC] = memory[0x4];
+            memory[PC + 1] = memory[0x5];
+            memory[PSW] |= 0x20;
+        }
+    }
 }
 
 void Emulator::emulate() {
     initialize();
+    while(!emulation_over) {
+        fetch();
+        addr();
+        cout << instruction << " " << addressing << endl;
+        exec();
+        update_terminal();
+        update_timer();
+        intr();
+    }
 }

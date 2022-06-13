@@ -5,6 +5,7 @@
 #include <string>
 #include <iostream>
 #include <iomanip>
+#include <sys/time.h>
 
 using namespace std;
 
@@ -32,6 +33,10 @@ class Emulator {
 
   typedef enum { NONE, PREDECR, PREINCR, POSTDECR, POSTINCR } Register_Update;
 
+  const vector<int> timer_values = { 500, 1000, 1500, 2000, 5000, 10000, 30000, 60000, };
+
+  long last_interrupt; 
+
   Instruction instruction;
   Register reg_D, reg_S;
   Addressing addressing;
@@ -46,6 +51,10 @@ class Emulator {
   bool wrong_register(int reg);
   bool wrong_addressing(int addressing);
   bool wrong_update(int update);
+
+  void getch();
+  void update_terminal();
+  void update_timer();
 
 public:
   Emulator(string filename);
