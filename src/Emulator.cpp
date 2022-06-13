@@ -3,38 +3,22 @@
 #include <bitset>
 #include <fstream>
 #include <termios.h>
-#include <poll.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <unistd.h>
 
 void Emulator::getch() {
     char buf = 0;
-    struct termios old = {0};
-    if(tcgetattr(0, &old) < 0) {
-        perror("tcsetattr()");
-    }
-    old.c_lflag &= ~(ICANON | ECHO);
-    old.c_cc[VMIN] = 1;
-    old.c_cc[VTIME] = 0;
-    if(tcsetattr(0, TCSANOW, &old) < 0) {
-        perror("tcsetattr ICANON");
-    }
     if(read(0, &buf, 1) < 0) {
-        perror("read()");
-    }
-    old.c_lflag |= ICANON | ECHO;
-    if(tcsetattr(0, TCSADRAIN, &old) < 0) {
-        perror("tcsetattr ~ICANON");
+        // perror("read()");
+        return;
     }
     memory[TERM_IN] = +buf;
     memory[PSW] &= ~0x40;
 }
 
 void Emulator::update_terminal() {
-    struct pollfd input[1] = {{ fd: 0, events: POLLIN }};
-    int ret_poll = poll(input, 1, -1);
-    if(ret_poll) {
-        getch();
-    }
+    getch();
 }
 
 void Emulator::update_timer() {
@@ -79,7 +63,7 @@ Emulator::Emulator(string filename)
 }
 
 void Emulator::finished_emulation_print() {
-  cout << "------------------------------------------------" << endl;
+  cout << endl << endl << "------------------------------------------------" << endl;
   cout << "Emulated processor executed halt instruction" << endl;
   cout << "Emulated processor state: psw=0b";
   cout << setw(16) << setfill('0') << bitset<16>(memory[PSW] << 8 + memory[PSW + 1]) << setw(0) << endl;
@@ -102,6 +86,22 @@ void Emulator::initialize() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     last_interrupt = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+
+    old = {0};
+    if(tcgetattr(0, &old) < 0) {
+        perror("tcsetattr()");
+    }
+    old.c_lflag &= ~(ICANON | ECHO);
+    old.c_cc[VMIN] = 1;
+    old.c_cc[VTIME] = 0;
+    if(tcsetattr(0, TCSANOW, &old) < 0) {
+        perror("tcsetattr ICANON");
+    }
+
+    int flags = fcntl(0, F_GETFL, 0);
+    fcntl(0, F_SETFL, flags | O_NONBLOCK);
+
+    // memory[TIM_CFG + 1] = 0x7;
 }
 
 bool Emulator::one_address_instruction() {
@@ -321,7 +321,7 @@ void Emulator::exec() {
         memory[operand] = memory[reg_D];
         memory[operand + 1] = memory[reg_D + 1];
         if(operand == TERM_OUT) {
-            cout << memory[TERM_OUT];
+            cout << (char)memory[TERM_OUT + 1];
         }
     }
 }
@@ -360,10 +360,16 @@ void Emulator::emulate() {
     while(!emulation_over) {
         fetch();
         addr();
-        cout << instruction << " " << addressing << endl;
+        // cout << instruction << " " << addressing << endl;
         exec();
         update_terminal();
         update_timer();
         intr();
+    }
+
+
+    old.c_lflag |= ICANON | ECHO;
+    if(tcsetattr(0, TCSADRAIN, &old) < 0) {
+        perror("tcsetattr ~ICANON");
     }
 }

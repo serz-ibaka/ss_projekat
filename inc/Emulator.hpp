@@ -6,6 +6,7 @@
 #include <iostream>
 #include <iomanip>
 #include <sys/time.h>
+#include <termios.h>
 
 using namespace std;
 
@@ -29,7 +30,7 @@ class Emulator {
                  SHL = 0x90, SHR,
                  LDR = 0xa0, STR = 0xb0 } Instruction;
 
-  typedef enum { IMMED, REGDIR, REGDIRADD, REGIND, REGINDPOM, MEM } Addressing;
+  typedef enum { IMMED, REGDIR, REGIND, REGINDPOM, MEM, REGDIRADD } Addressing;
 
   typedef enum { NONE, PREDECR, PREINCR, POSTDECR, POSTINCR } Register_Update;
 
@@ -55,6 +56,8 @@ class Emulator {
   void getch();
   void update_terminal();
   void update_timer();
+
+  struct termios old;
 
 public:
   Emulator(string filename);
