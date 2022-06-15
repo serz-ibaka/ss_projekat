@@ -371,7 +371,9 @@ ParsedLine::ParsedLine(string line) {
         if(l != r) {
             string token = line.substr(l, r - l);
             strip(token);
-            tokens.push_back(token);
+            if(token != "") {
+                tokens.push_back(token);
+            }
             if(labels_over) { delimiter1 = ','; delimiter2 = ','; }
             labels_over = true;
         }
@@ -379,6 +381,10 @@ ParsedLine::ParsedLine(string line) {
     }
     int i = 0;
     len = tokens.size();
+    if(len == 0) {
+        empty = true;
+        return;
+    }
     while(i < len && tokens[i][tokens[i].size() - 1] == ':') {
         tokens[i].pop_back();
         if(!check_symbol(tokens[i])) {

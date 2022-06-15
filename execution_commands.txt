@@ -1,9 +1,0 @@
-./assembler -o main.o main.s
-./assembler -o test.o test.s
-./linker -relocatable -o program.o test.o main.o
-
-./objdump main.o
-./objdump test.o
-./objdump program.o
-
-./linker -hex -place=ivt@0x0000 -place=isr@0x0010 -place=myCode@0x004e -o program.hex test.o main.o

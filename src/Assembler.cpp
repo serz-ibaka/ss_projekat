@@ -284,6 +284,7 @@ void Assembler::assemble() {
             }
         }
     }
+    symbol_table[current_section].size = location_counter;
 
 
     while(unresolved_symbols.size() > 0) {

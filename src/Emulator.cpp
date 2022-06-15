@@ -5,6 +5,7 @@
 #include <termios.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <chrono>
 
 void Emulator::update_terminal() {
     char buf = 0;
@@ -20,10 +21,8 @@ void Emulator::update_timer() {
     int timer_index = (memory[TIM_CFG] << 8) + memory[TIM_CFG + 1];
     int timer = 500;
     if(timer_index < timer_values.size()) timer = timer_values[timer_index];
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    long ms = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-    if(ms - last_interrupt > timer) {
+    long ms = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
+    if(ms - last_interrupt >= timer) {
         last_interrupt = ms;
         memory[PSW] &= ~0xa0;
     }
@@ -82,9 +81,7 @@ void Emulator::initialize() {
     memory[SP] = 0xff;
     memory[SP + 1] = 0x00;
     memory[PSW] |= 0xe0;
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    last_interrupt = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+    last_interrupt = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
 
     int flags = fcntl(0, F_GETFL, 0);
     fcntl(0, F_SETFL, flags | O_NONBLOCK);
@@ -99,8 +96,6 @@ void Emulator::initialize() {
     if(tcsetattr(0, TCSANOW, &old) < 0) {
         perror("tcsetattr ICANON");
     }
-
-    // memory[TIM_CFG + 1] = 0x7;
 }
 
 bool Emulator::one_address_instruction() {
@@ -226,6 +221,8 @@ void Emulator::addr() {
 }
 
 void Emulator::exec() {
+    // cout << "PC: " << ((memory[PC] << 8) + memory[PC+1]) << ", instruction: " << instruction 
+    // << ", addressing: " << addressing << ", regD: " << memory[reg_D+1] << ", regS: " << memory[reg_S+1] << endl;
     if(instruction == HALT) {
         emulation_over = true;
     }
@@ -238,9 +235,9 @@ void Emulator::exec() {
         memory[SP] = sp >> 8;
         memory[SP + 1] = sp & 0xff;
         int reg_d = (memory[reg_D] << 8) + memory[reg_D + 1];
-        int new_addr = (memory[reg_d + 1] & 7) << 1;
-        memory[PC] = memory[new_addr];
-        memory[PC + 1] = memory[new_addr + 1];
+        int int_loc = (reg_d & 7) << 1;
+        memory[PC] = memory[int_loc];
+        memory[PC + 1] = memory[int_loc + 1];
     }
     else if(instruction == IRET) {
         int sp = (memory[SP] << 8) + memory[SP + 1] + 4;
@@ -250,7 +247,7 @@ void Emulator::exec() {
         memory[PSW + 1] = memory[sp - 1];
         memory[SP] = sp >> 8;
         memory[SP + 1] = sp & 0xff;
-        cout << "Interrupt return - PC = " << ((memory[PC] << 8) + memory[PC+1]) << endl;
+        // cout << "Interrupt return - PC = " << ((memory[PC] << 8) + memory[PC+1]) << endl;
     }
     else if(instruction == CALL) {
         int sp = (memory[SP] << 8) + memory[SP + 1] - 2;
@@ -263,8 +260,8 @@ void Emulator::exec() {
     }
     else if(instruction == RET) {
         int sp = (memory[SP] << 8) + memory[SP + 1] + 2;
-        memory[PC + 1] = memory[sp - 2];
-        memory[PC] = memory[sp - 1];
+        memory[PC] = memory[sp - 2];
+        memory[PC + 1] = memory[sp - 1];
         memory[SP] = sp >> 8;
         memory[SP + 1] = sp & 0xff;
     }
@@ -306,16 +303,23 @@ void Emulator::exec() {
         int psw = (memory[PSW] << 8) + memory[PSW + 1];
         if(instruction == CMP || instruction == TEST || instruction == SHL || instruction == SHR) {
             if(res == 0) psw |= 0x1;
+            else psw &= ~0x1;
             if(res < 0) psw |= 0x8;
+            else psw &= ~0x8;
         }
         if(instruction == CMP && reg_d < reg_s
         || instruction == SHL && (reg_d & (reg_s >= 0x4 ? 0 : 1 << (0x4 - reg_s)))){
             psw |= 0x4;
+        } else if(instruction == CMP || instruction == SHL || instruction == SHR) {
+            psw &= ~0x4;
         }
         if(instruction == CMP && (reg_d < reg_s && res > 0 || reg_d > reg_s && res < 0)) {
             psw |= 0x2;
+        } else if(instruction == CMP) {
+            psw &= ~0x2;
         }
         if(instruction != TEST && instruction != CMP) {
+            res &= 0xffff;
             memory[reg_D] = res >> 8;
             memory[reg_D + 1] = res & 0xff;
         }
@@ -330,7 +334,10 @@ void Emulator::exec() {
         memory[operand] = memory[reg_D];
         memory[operand + 1] = memory[reg_D + 1];
         if(operand == TERM_OUT) {
-            cout << (char)memory[TERM_OUT + 1];
+            char c = (char) memory[TERM_OUT];
+            write(1, &c, 1);
+            c = (char) memory[TERM_OUT + 1];
+            write(1, &c, 1);
         }
     }
 }
@@ -338,7 +345,7 @@ void Emulator::exec() {
 void Emulator::intr() {
     bool timer_interrupt = !(memory[PSW] & 0xa0);
     bool terminal_interrupt = !(memory[PSW] & 0xc0);
-    if(error || terminal_interrupt) {
+    if(error || timer_interrupt || terminal_interrupt) {
         int sp = (memory[SP] << 8) + memory[SP + 1] - 4;
         memory[sp] = memory[PC];
         memory[sp + 1] = memory[PC + 1];
@@ -350,12 +357,13 @@ void Emulator::intr() {
         else if(terminal_interrupt) {
             memory[PC] = memory[0x6];
             memory[PC + 1] = memory[0x7];
-            cout << "Terminal interrupt - PC = " << ((memory[PC] << 8) + memory[PC+1]) << endl;
+            // cout << "Terminal interrupt - PC = " << ((memory[PC] << 8) + memory[PC+1]) << endl;
             memory[PSW] |= 0xc0;
         }
         else if(timer_interrupt) {
             memory[PC] = memory[0x4];
             memory[PC + 1] = memory[0x5];
+            // cout << "Timer interrupt - PC = " << ((memory[PC] << 8) + memory[PC+1]) << endl;
             memory[PSW] |= 0xa0;
         }
         memory[sp + 2] = memory[PSW];
