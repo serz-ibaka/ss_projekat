@@ -28,6 +28,7 @@ int Assembler::expression_value(vector<pair<string, bool>>& expression) {
 
 void Assembler::assemble() {
     location_counter = 0;
+    int section_counter = -1;
     Parser& parser = Parser::get_instance();
     parser.set_file(filename);
 
@@ -72,18 +73,19 @@ void Assembler::assemble() {
             current_section = parsed_line.operand_symbol;
             location_counter = 0;
             symbol_table[current_section] = symbol_table_entry(0, current_section, false, true);
-            section_content[current_section] = {};
-            relocation_table[current_section] = {};
+            section_content.push_back({current_section, {}});
+            relocation_table.push_back({current_section, {}});
+            section_counter++;
         }
         else if(parsed_line.directive == ParsedLine::SKIP) {
             for(int i = 0; i < parsed_line.operand_literal; i++) {
-                section_content[current_section].push_back(0);
+                section_content[section_counter].second.push_back(0);
             }
             location_counter += parsed_line.operand_literal;
         }
         else if(parsed_line.directive == ParsedLine::ASCII) {
             for(char c : parsed_line.ascii_string) {
-                section_content[current_section].push_back(c);
+                section_content[section_counter].second.push_back(c);
                 location_counter++;
             }
         }
@@ -94,8 +96,8 @@ void Assembler::assemble() {
                     int value = ParsedLine::convert_literal(symbol);
                     int low = value & 255;
                     int high = value >> 8;
-                    section_content[current_section].push_back(high);
-                    section_content[current_section].push_back(low);
+                    section_content[section_counter].second.push_back(high);
+                    section_content[section_counter].second.push_back(low);
                 }
                 else {
                     if(symbol_table.count(symbol)) {
@@ -109,12 +111,12 @@ void Assembler::assemble() {
                             sym = symbol_table[symbol].section;
                             addend = symbol_table[symbol].value;
                         }
-                        relocation_table[current_section].push_back(relocation_entry(offset, sym, addend));
+                        relocation_table[section_counter].second.push_back(relocation_entry(offset, sym, addend));
                     } else {
                         forward_link.push_back(forward_link_entry(current_section, location_counter, symbol));
                     }
-                    section_content[current_section].push_back(0);
-                    section_content[current_section].push_back(0);
+                    section_content[section_counter].second.push_back(0);
+                    section_content[section_counter].second.push_back(0);
                 }
                 location_counter += 2;
             }
@@ -132,57 +134,57 @@ void Assembler::assemble() {
             }
         }
         else if(parsed_line.instruction == ParsedLine::HALT) {
-            section_content[current_section].push_back(0);
+            section_content[section_counter].second.push_back(0);
             location_counter++;
         }
         else if(parsed_line.instruction == ParsedLine::IRET) {
-            section_content[current_section].push_back(32);
+            section_content[section_counter].second.push_back(32);
             location_counter++;
         }
         else if(parsed_line.instruction == ParsedLine::RET) {
-            section_content[current_section].push_back(64);
+            section_content[section_counter].second.push_back(64);
             location_counter++;
         }
         else if(parsed_line.instruction == ParsedLine::INT) {
-            section_content[current_section].push_back(16);
-            section_content[current_section].push_back(15 + (parsed_line.reg_dst - 1 << 4));
+            section_content[section_counter].second.push_back(16);
+            section_content[section_counter].second.push_back(15 + (parsed_line.reg_dst - 1 << 4));
             location_counter += 2;
         }
         else if(parsed_line.instruction == ParsedLine::XCHG) {
-            section_content[current_section].push_back(96);
-            section_content[current_section].push_back(parsed_line.reg_src - 1 + (parsed_line.reg_dst - 1 << 4));
+            section_content[section_counter].second.push_back(96);
+            section_content[section_counter].second.push_back(parsed_line.reg_src - 1 + (parsed_line.reg_dst - 1 << 4));
             location_counter += 2;
         }
         else if(parsed_line.instruction >= ParsedLine::ADD && parsed_line.instruction <= ParsedLine::CMP) {
-            section_content[current_section].push_back(112 + parsed_line.instruction - ParsedLine::ADD);
-            section_content[current_section].push_back(parsed_line.reg_src - 1 + (parsed_line.reg_dst - 1 << 4));
+            section_content[section_counter].second.push_back(112 + parsed_line.instruction - ParsedLine::ADD);
+            section_content[section_counter].second.push_back(parsed_line.reg_src - 1 + (parsed_line.reg_dst - 1 << 4));
             location_counter += 2;
         }
         else if(parsed_line.instruction == ParsedLine::NOT) {
-            section_content[current_section].push_back(128);
-            section_content[current_section].push_back(parsed_line.reg_dst - 1 << 4);
+            section_content[section_counter].second.push_back(128);
+            section_content[section_counter].second.push_back(parsed_line.reg_dst - 1 << 4);
             location_counter += 2;
         }
         else if(parsed_line.instruction >= ParsedLine::AND && parsed_line.instruction <= ParsedLine::TEST) {
-            section_content[current_section].push_back(128 + parsed_line.instruction - ParsedLine::NOT);
-            section_content[current_section].push_back(parsed_line.reg_src - 1 + (parsed_line.reg_dst - 1 << 4));
+            section_content[section_counter].second.push_back(128 + parsed_line.instruction - ParsedLine::NOT);
+            section_content[section_counter].second.push_back(parsed_line.reg_src - 1 + (parsed_line.reg_dst - 1 << 4));
             location_counter += 2;
         }
         else if(parsed_line.instruction == ParsedLine::SHL || parsed_line.instruction == ParsedLine::SHR) {
-            section_content[current_section].push_back(144 + parsed_line.instruction - ParsedLine::SHL);
-            section_content[current_section].push_back(parsed_line.reg_src - 1 + (parsed_line.reg_dst - 1 << 4));
+            section_content[section_counter].second.push_back(144 + parsed_line.instruction - ParsedLine::SHL);
+            section_content[section_counter].second.push_back(parsed_line.reg_src - 1 + (parsed_line.reg_dst - 1 << 4));
             location_counter += 2;
         }
         else if(parsed_line.instruction == ParsedLine::PUSH) {
-            section_content[current_section].push_back(176);
-            section_content[current_section].push_back(ParsedLine::SP - 1 + (parsed_line.reg_dst - 1 << 4));
-            section_content[current_section].push_back(18);
+            section_content[section_counter].second.push_back(176);
+            section_content[section_counter].second.push_back(ParsedLine::SP - 1 + (parsed_line.reg_dst - 1 << 4));
+            section_content[section_counter].second.push_back(18);
             location_counter += 3;
         }
         else if(parsed_line.instruction == ParsedLine::POP) {
-            section_content[current_section].push_back(160);
-            section_content[current_section].push_back(ParsedLine::SP - 1 + (parsed_line.reg_dst - 1 << 4));
-            section_content[current_section].push_back(66);
+            section_content[section_counter].second.push_back(160);
+            section_content[section_counter].second.push_back(ParsedLine::SP - 1 + (parsed_line.reg_dst - 1 << 4));
+            section_content[section_counter].second.push_back(66);
             location_counter += 3;
         }
         else if(parsed_line.instruction >= ParsedLine::CALL && parsed_line.instruction <= ParsedLine::JGT
@@ -192,7 +194,7 @@ void Assembler::assemble() {
             if(parsed_line.instruction == ParsedLine::CALL) instr = 48;
             else if(parsed_line.instruction < ParsedLine::LDR) instr = 80 + parsed_line.instruction - ParsedLine::JMP;
             else instr = 10 + parsed_line.instruction - ParsedLine::LDR << 4;
-            section_content[current_section].push_back(instr);
+            section_content[section_counter].second.push_back(instr);
 
             // second byte
             int reg = 240 + parsed_line.reg_dst - 1;
@@ -205,7 +207,7 @@ void Assembler::assemble() {
                     reg = (parsed_line.reg_dst - 1 << 4) + 15;
                 }
             }
-            section_content[current_section].push_back(reg);
+            section_content[section_counter].second.push_back(reg);
 
             // third byte
             int addressing = 0;
@@ -228,7 +230,7 @@ void Assembler::assemble() {
             else if(parsed_line.addressing == ParsedLine::REG_IND) {
                 addressing = 2;
             }
-            section_content[current_section].push_back(addressing);
+            section_content[section_counter].second.push_back(addressing);
 
             location_counter += 3;
 
@@ -237,8 +239,8 @@ void Assembler::assemble() {
             if(parsed_line.addressing == ParsedLine::LIT
             || parsed_line.addressing == ParsedLine::MEM_LIT
             || parsed_line.addressing == ParsedLine::REG_IND_LIT) {
-                section_content[current_section].push_back(parsed_line.operand_literal >> 8);
-                section_content[current_section].push_back(parsed_line.operand_literal & 255);
+                section_content[section_counter].second.push_back(parsed_line.operand_literal >> 8);
+                section_content[section_counter].second.push_back(parsed_line.operand_literal & 255);
                 location_counter += 2;
             }
             else if(parsed_line.addressing == ParsedLine::SYM
@@ -247,8 +249,8 @@ void Assembler::assemble() {
             || parsed_line.addressing == ParsedLine::PCREL) {
                 if(symbol_table.count(parsed_line.operand_symbol)) {
                     if(symbol_table[parsed_line.operand_symbol].section == "__abs__") {
-                        section_content[current_section].push_back(symbol_table[parsed_line.operand_symbol].value >> 8);
-                        section_content[current_section].push_back(symbol_table[parsed_line.operand_symbol].value & 255);
+                        section_content[section_counter].second.push_back(symbol_table[parsed_line.operand_symbol].value >> 8);
+                        section_content[section_counter].second.push_back(symbol_table[parsed_line.operand_symbol].value & 255);
                         location_counter += 2;
                         continue;
                     }
@@ -263,10 +265,10 @@ void Assembler::assemble() {
                             sym = symbol_table[parsed_line.operand_symbol].section;
                             addend = symbol_table[parsed_line.operand_symbol].value;
                         }
-                        relocation_table[current_section].push_back(relocation_entry(offset, sym, addend));
+                        relocation_table[section_counter].second.push_back(relocation_entry(offset, sym, addend));
                         if(parsed_line.addressing == ParsedLine::PCREL) {
-                            relocation_table[current_section].back().is_PC = true;
-                            // relocation_table[current_section].back().addend -= 2;
+                            relocation_table[section_counter].second.back().is_PC = true;
+                            relocation_table[section_counter].second.back().addend -= 2;
                         }
                     }
                 } else {
@@ -276,8 +278,8 @@ void Assembler::assemble() {
                     }
                 }
 
-                section_content[current_section].push_back(0);
-                section_content[current_section].push_back(0);
+                section_content[section_counter].second.push_back(0);
+                section_content[section_counter].second.push_back(0);
                 location_counter += 2;
             }
         }
@@ -310,8 +312,8 @@ void Assembler::assemble() {
     for(auto& flink : forward_link) {
         if(symbol_table.count(flink.symbol)) {
             if(symbol_table[flink.symbol].section == "__abs__") {
-                section_content[flink.section][flink.location_counter] = symbol_table[flink.symbol].value >> 8;
-                section_content[flink.section][flink.location_counter + 1] = symbol_table[flink.symbol].value & 255;
+                section_content[section_counter].second[flink.location_counter] = symbol_table[flink.symbol].value >> 8;
+                section_content[section_counter].second[flink.location_counter + 1] = symbol_table[flink.symbol].value & 255;
             } else {
                 int offset = flink.location_counter;
                 string sym;
@@ -323,10 +325,15 @@ void Assembler::assemble() {
                     sym = symbol_table[flink.symbol].section;
                     addend = symbol_table[flink.symbol].value;
                 }
-                relocation_table[flink.section].push_back(relocation_entry(offset, sym, addend));
-                if(flink.is_PC) {
-                    relocation_table[flink.section].back().is_PC = true;
-                    // relocation_table[flink.section].back().addend -= 2;
+                for(int i = 0; i < relocation_table.size(); i++) {
+                    if(relocation_table[i].first == flink.section) {
+                        relocation_table[i].second.push_back(relocation_entry(offset, sym, addend));
+                        if(flink.is_PC) {
+                            relocation_table[i].second.back().is_PC = true;
+                            relocation_table[i].second.back().addend -= 2;
+                        }
+                        break;
+                    }
                 }
             }
             
@@ -385,13 +392,13 @@ istream& operator>>(istream& is, Assembler& as) {
         string section;
         int size;
         is >> section >> size;
-        as.relocation_table[section] = {};
+        as.relocation_table.push_back({ section, {}});
         for(int j = 0; j < size; j++) {
             int offset, addend, is_PC;
             string symbol;
             is >> offset >> is_PC >> symbol >> addend;
-            as.relocation_table[section].push_back(Assembler::relocation_entry(offset, symbol, addend));
-            as.relocation_table[section].back().is_PC = (is_PC == 1);
+            as.relocation_table[i].second.push_back(Assembler::relocation_entry(offset, symbol, addend));
+            as.relocation_table[i].second.back().is_PC = (is_PC == 1);
         }
     }
 
@@ -401,11 +408,11 @@ istream& operator>>(istream& is, Assembler& as) {
         string section;
         int size;
         is >> section >> size;
-        as.section_content[section] = {};
+        as.section_content.push_back({section, {}});
         for(int j = 0; j < size; j++) {
             int byte;
             is >> byte;
-            as.section_content[section].push_back((char)byte);
+            as.section_content[i].second.push_back((char)byte);
         }
     }
 

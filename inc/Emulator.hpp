@@ -53,7 +53,6 @@ class Emulator {
   bool wrong_addressing(int addressing);
   bool wrong_update(int update);
 
-  void getch();
   void update_terminal();
   void update_timer();
 
@@ -67,6 +66,7 @@ public:
   void addr();
   void exec();
   void intr();
+  void finish_emulation();
   void emulate();
   void finished_emulation_print();
 

@@ -18,8 +18,8 @@ class Linker {
   string output_filename;
 
   unordered_map<string, Assembler::symbol_table_entry> symbol_table;
-  unordered_map<string, vector<Assembler::relocation_entry>> relocation_tables;
-  unordered_map<string, vector<unsigned char>> section_content;
+  vector<pair<string, vector<Assembler::relocation_entry>>> relocation_tables;
+  vector<pair<string, vector<unsigned char>>> section_content;
 
 public:
 

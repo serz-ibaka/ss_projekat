@@ -60,18 +60,27 @@ void Linker::fetch_all_data(int count, char* arguments[]) {
 
       bool new_section = false;
       for(auto& entry : assembler.relocation_table) {
-          if(!relocation_tables.count(entry.first)) {
-              relocation_tables[entry.first] = {};
-              new_section = true;
-          }
-          for(auto& row : entry.second) {
-              relocation_tables[entry.first].push_back(row);
+        int index = -1;
+        for(int i = 0; i < relocation_tables.size(); i++) {
+            if(relocation_tables[i].first == entry.first) {
+                index = i;
+                break;
+            }
+        }
+
+        if(index == -1) {
+            relocation_tables.push_back({entry.first, {}});
+            new_section = true;
+            index = relocation_tables.size() - 1;
+        }
+        for(auto& row : entry.second) {
+              relocation_tables[index].second.push_back(row);
               if(!new_section) {
-                  relocation_tables[entry.first].back().offset += symbol_table[entry.first].size;
+                  relocation_tables[index].second.back().offset += symbol_table[entry.first].size;
               }
-              if(symbol_table.count(relocation_tables[entry.first].back().symbol)
-              && symbol_table[relocation_tables[entry.first].back().symbol].is_section) {
-                  relocation_tables[entry.first].back().addend += symbol_table[relocation_tables[entry.first].back().symbol].size;
+              if(symbol_table.count(relocation_tables[index].second.back().symbol)
+              && symbol_table[relocation_tables[index].second.back().symbol].is_section) {
+                  relocation_tables[index].second.back().addend += symbol_table[relocation_tables[index].second.back().symbol].size;
               }
           }
       }
@@ -107,10 +116,17 @@ void Linker::fetch_all_data(int count, char* arguments[]) {
       }
 
       for(auto& content : assembler.section_content) {
-          if(section_content.count(content.first)) {
-              section_content[content.first].insert(section_content[content.first].end(), content.second.begin(), content.second.end());
+        int index = -1;
+        for(int i = 0; i < section_content.size(); i++) {
+            if(section_content[i].first == content.first) {
+                index = i;
+                break;
+            }
+        }
+          if(index != -1) {
+              section_content[index].second.insert(section_content[index].second.end(), content.second.begin(), content.second.end());
           } else {
-              section_content[content.first] = content.second;
+              section_content.push_back({content.first, content.second});
           }
       }
   }
@@ -161,18 +177,18 @@ void Linker::fetch_all_data(int count, char* arguments[]) {
             if(place.count(row.symbol)) {
               hex_content[place[section] + row.offset] = (place[row.symbol] + row.addend) >> 8;
               hex_content[place[section] + row.offset + 1] = (place[row.symbol] + row.addend) & 255;
-            //   if(row.is_PC) {
-            //     hex_content[place[section] + row.offset] = (place[row.symbol] + row.addend - place[section] - row.offset) >> 8;
-            //     hex_content[place[section] + row.offset + 1] = (place[row.symbol] + row.addend - place[section] - row.offset) & 255;
-            //   }
+              if(row.is_PC) {
+                hex_content[place[section] + row.offset] = (place[row.symbol] + row.addend - place[section] - row.offset) >> 8;
+                hex_content[place[section] + row.offset + 1] = (place[row.symbol] + row.addend - place[section] - row.offset) & 255;
+              }
             }
             else {
                 hex_content[place[section] + row.offset] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend) >> 8;
                 hex_content[place[section] + row.offset + 1] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend) & 255;
-                // if(row.is_PC) {
-                //     hex_content[place[section] + row.offset] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend - place[section] - row.offset) >> 8;
-                //     hex_content[place[section] + row.offset + 1] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend - place[section] - row.offset) & 255;
-                // }
+                if(row.is_PC) {
+                    hex_content[place[section] + row.offset] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend - place[section] - row.offset) >> 8;
+                    hex_content[place[section] + row.offset + 1] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend - place[section] - row.offset) & 255;
+                }
             }
           }
       }

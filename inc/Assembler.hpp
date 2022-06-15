@@ -55,8 +55,8 @@ class Assembler {
     };
 
     unordered_map<string, symbol_table_entry> symbol_table;
-    unordered_map<string, vector<relocation_entry>> relocation_table;
-    unordered_map<string, vector<unsigned char>> section_content;                // bytes
+    vector<pair<string, vector<relocation_entry>>> relocation_table;
+    vector<pair<string, vector<unsigned char>>> section_content;                // bytes
     vector<forward_link_entry> forward_link;
     unordered_map<string, vector<pair<string, bool>>> unresolved_symbols; // map of unresolved symbols .equ
                                                     // vector is an array of symbols/literals and their sign
