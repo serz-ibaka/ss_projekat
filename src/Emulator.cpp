@@ -5,8 +5,6 @@
 #include <termios.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <unistd.h>
-
 void Emulator::getch() {
     char buf = 0;
     if(read(0, &buf, 1) < 0) {
@@ -66,15 +64,15 @@ void Emulator::finished_emulation_print() {
   cout << endl << endl << "------------------------------------------------" << endl;
   cout << "Emulated processor executed halt instruction" << endl;
   cout << "Emulated processor state: psw=0b";
-  cout << setw(16) << setfill('0') << bitset<16>(memory[PSW] << 8 + memory[PSW + 1]) << setw(0) << endl;
-  cout << "r0=0x" << setw(4) << setfill('0') << hex << (memory[R0] << 8 + memory[R0 + 1]) << setw(0);
-  cout << "    r1=0x" << setw(4) << setfill('0') << hex << (memory[R1] << 8 + memory[R1 + 1]) << setw(0);
-  cout << "    r2=0x" << setw(4) << setfill('0') << hex << (memory[R2] << 8 + memory[R2 + 1]) << setw(0);
-  cout << "    r3=0x" << setw(4) << setfill('0') << hex << (memory[R3] << 8 + memory[R3 + 1]) << setw(0) << endl;
-  cout << "r4=0x" << setw(4) << setfill('0') << hex << (memory[R4] << 8 + memory[R4 + 1]) << setw(0);
-  cout << "    r5=0x" << setw(4) << setfill('0') << hex << (memory[R5] << 8 + memory[R5 + 1]) << setw(0);
-  cout << "    r6=0x" << setw(4) << setfill('0') << hex << (memory[R6] << 8 + memory[R6 + 1]) << setw(0);
-  cout << "    r7=0x" << setw(4) << setfill('0') << hex << (memory[R7] << 8 + memory[R7 + 1]) << setw(0) << endl;
+  cout << setw(16) << setfill('0') << bitset<16>((memory[PSW] << 8 )+ memory[PSW + 1]) << setw(0) << endl;
+  cout << "r0=0x" << setw(4) << setfill('0') << hex << ((memory[R0] << 8) + memory[R0 + 1]) << setw(0);
+  cout << "    r1=0x" << setw(4) << setfill('0') << hex << ((memory[R1] << 8) + memory[R1 + 1]) << setw(0);
+  cout << "    r2=0x" << setw(4) << setfill('0') << hex << ((memory[R2] << 8) + memory[R2 + 1]) << setw(0);
+  cout << "    r3=0x" << setw(4) << setfill('0') << hex << ((memory[R3] << 8) + memory[R3 + 1]) << setw(0) << endl;
+  cout << "r4=0x" << setw(4) << setfill('0') << hex << ((memory[R4] << 8) + memory[R4 + 1]) << setw(0);
+  cout << "    r5=0x" << setw(4) << setfill('0') << hex << ((memory[R5] << 8) + memory[R5 + 1]) << setw(0);
+  cout << "    r6=0x" << setw(4) << setfill('0') << hex << ((memory[R6] << 8) + memory[R6 + 1]) << setw(0);
+  cout << "    r7=0x" << setw(4) << setfill('0') << hex << ((memory[R7] << 8) + memory[R7 + 1]) << setw(0) << endl;
 }
 
 void Emulator::initialize() {
@@ -101,7 +99,7 @@ void Emulator::initialize() {
     int flags = fcntl(0, F_GETFL, 0);
     fcntl(0, F_SETFL, flags | O_NONBLOCK);
 
-    // memory[TIM_CFG + 1] = 0x7;
+    memory[TIM_CFG + 1] = 0x7;
 }
 
 bool Emulator::one_address_instruction() {
@@ -165,8 +163,8 @@ void Emulator::fetch() {
         error = true;
         return;
     }
-    reg_D = (Register) (0xff20 + (registers >> 4));
-    reg_S = (Register) (0xff20 + (registers & 0xf));
+    reg_D = (Register) (0xff20 + ((registers >> 4) << 1));
+    reg_S = (Register) (0xff20 + ((registers & 0xf) << 1));
     if(two_address_instruction()) return;
 
     int address_update = memory[pc++];
@@ -185,6 +183,7 @@ void Emulator::fetch() {
     memory[PC] = pc >> 8;
     memory[PC + 1] = pc & 0xff;
     data_payload = (data_high << 8) + data_low;
+    if(data_payload > 0x7fff) data_payload -= 0xffff;
 }
 
 void Emulator::addr() {
@@ -220,6 +219,7 @@ void Emulator::addr() {
             operand = data_payload;
         }
     }
+    if(operand > 0x7fff) operand -= 0xffff;
 }
 
 void Emulator::exec() {
@@ -300,12 +300,17 @@ void Emulator::exec() {
         else if(instruction == SHR) res = reg_d >> reg_s;
 
         int psw = (memory[PSW] << 8) + memory[PSW + 1];
-        if(res == 0) psw |= 0x1;
-        if(res < 0) psw |= 0x8;
-        if(instruction == SHL && (res >> 15)
-        || (instruction == ADD || instruction == MUL) && res > 0xffff
-        || (instruction == CMP || instruction == SUB) && (reg_d < reg_s)) psw |= 0x4;
-        res &= 0xff;
+        if(instruction == CMP || instruction == TEST || instruction == SHL || instruction == SHR) {
+            if(res == 0) psw |= 0x1;
+            if(res < 0) psw |= 0x8;
+        }
+        if(instruction == CMP && reg_d < reg_s
+        || instruction == SHL && (reg_d & (reg_s >= 0x4 ? 0 : 1 << (0x4 - reg_s)))){
+            psw |= 0x4;
+        }
+        if(instruction == CMP && (reg_d < reg_s && res > 0 || reg_d > reg_s && res < 0)) {
+            psw |= 0x2;
+        }
         if(instruction != TEST && instruction != CMP) {
             memory[reg_D] = res >> 8;
             memory[reg_D + 1] = res & 0xff;
@@ -347,11 +352,11 @@ void Emulator::intr() {
             memory[PC + 1] = memory[0x7];
             memory[PSW] |= 0x40;
         }
-        else if(!(memory[PSW] & 0x20)) {
-            memory[PC] = memory[0x4];
-            memory[PC + 1] = memory[0x5];
-            memory[PSW] |= 0x20;
-        }
+        // else if(!(memory[PSW] & 0x20)) {
+        //     memory[PC] = memory[0x4];
+        //     memory[PC + 1] = memory[0x5];
+        //     memory[PSW] |= 0x20;
+        // }
     }
 }
 

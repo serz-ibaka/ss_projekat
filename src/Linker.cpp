@@ -161,18 +161,18 @@ void Linker::fetch_all_data(int count, char* arguments[]) {
             if(place.count(row.symbol)) {
               hex_content[place[section] + row.offset] = (place[row.symbol] + row.addend) >> 8;
               hex_content[place[section] + row.offset + 1] = (place[row.symbol] + row.addend) & 255;
-              if(row.is_PC) {
-                hex_content[place[section] + row.offset] = (place[row.symbol] + row.addend - place[section] - row.offset) >> 8;
-                hex_content[place[section] + row.offset + 1] = (place[row.symbol] + row.addend - place[section] - row.offset) & 255;
-              }
+            //   if(row.is_PC) {
+            //     hex_content[place[section] + row.offset] = (place[row.symbol] + row.addend - place[section] - row.offset) >> 8;
+            //     hex_content[place[section] + row.offset + 1] = (place[row.symbol] + row.addend - place[section] - row.offset) & 255;
+            //   }
             }
             else {
                 hex_content[place[section] + row.offset] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend) >> 8;
                 hex_content[place[section] + row.offset + 1] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend) & 255;
-                if(row.is_PC) {
-                    hex_content[place[section] + row.offset] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend - place[section] - row.offset) >> 8;
-                    hex_content[place[section] + row.offset + 1] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend - place[section] - row.offset) & 255;
-                }
+                // if(row.is_PC) {
+                //     hex_content[place[section] + row.offset] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend - place[section] - row.offset) >> 8;
+                //     hex_content[place[section] + row.offset + 1] = (place[symbol_table[row.symbol].section] + symbol_table[row.symbol].value + row.addend - place[section] - row.offset) & 255;
+                // }
             }
           }
       }

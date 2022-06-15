@@ -1,0 +1,16 @@
+5
+mesto 0 0 myCode 0 0
+myCode 0 53 myCode 1 0
+lab1 22 0 myCode 0 1
+lab2 43 0 myCode 0 0
+__und__ 0 0 __und__ 0 0
+1
+myCode
+3
+20 0 myCode 0
+29 0 lab1 0
+36 0 myCode 43
+1
+myCode
+53
+0 2 160 15 0 0 8 160 31 0 0 2 160 79 0 0 1 160 63 4 0 0 114 67 116 4 83 255 0 0 0 113 68 81 241 3 0 0 160 79 0 0 36 0 1 0 47 160 79 0 0 10 0 

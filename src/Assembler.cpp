@@ -266,7 +266,7 @@ void Assembler::assemble() {
                         relocation_table[current_section].push_back(relocation_entry(offset, sym, addend));
                         if(parsed_line.addressing == ParsedLine::PCREL) {
                             relocation_table[current_section].back().is_PC = true;
-                            relocation_table[current_section].back().addend -= 2;
+                            // relocation_table[current_section].back().addend -= 2;
                         }
                     }
                 } else {
@@ -326,7 +326,7 @@ void Assembler::assemble() {
                 relocation_table[flink.section].push_back(relocation_entry(offset, sym, addend));
                 if(flink.is_PC) {
                     relocation_table[flink.section].back().is_PC = true;
-                    relocation_table[flink.section].back().addend -= 2;
+                    // relocation_table[flink.section].back().addend -= 2;
                 }
             }
             
